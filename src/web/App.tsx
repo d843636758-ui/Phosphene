@@ -1554,6 +1554,7 @@ function ConnectionSettings({ tokens, onChanged }: { tokens: any[]; onChanged: (
         <span>MCP ENDPOINT</span>
         <SecretBox value={`${location.origin}/mcp`} />
         <p>认证方式：<code>Authorization: Bearer YOUR_AI_TOKEN</code>（推荐），也支持 <code>X-Phosphene-MCP-Token: YOUR_AI_TOKEN</code></p>
+        <p>ChatGPT 开发者模式：填写同一 Endpoint，身份验证选择 <code>OAuth</code>，无需粘贴 AI Token。</p>
       </div>
       {error && <InlineError message={error} />}
       {secret && <div className="one-time-secret"><strong>新的 Token 只显示这一次</strong><SecretBox value={secret} /></div>}

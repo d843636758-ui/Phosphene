@@ -406,16 +406,26 @@ PHOSPHENE_MCP_AUTH_MODE=none
 若 Operit 连接的是 Zeabur 实例，应继续使用 HTTPS 域名和 Token，不要关闭公网鉴权。只支持
 旧 SSE 握手的客户端无法直连当前无状态 Endpoint，需要升级客户端。
 
+### ChatGPT 网页版
+
+ChatGPT 开发者模式使用完整 OAuth 2.1 授权，不需要把 AI Token 粘贴给 ChatGPT：
+
+1. 在 ChatGPT 的自定义 MCP/应用页面填写 `https://YOUR_PHOSPHENE_DOMAIN/mcp`。
+2. 身份验证选择 **OAuth**，不要选择“无身份验证”。
+3. ChatGPT 会通过动态客户端注册、授权码与 PKCE 打开 Phosphene 授权页。
+4. 在授权页核对回调域名是 `chatgpt.com`，输入 Phosphene 登录密码并允许连接。
+5. 返回 ChatGPT 后刷新工具，先调用 `get_overview` 验证双方称呼与队列。
+
+OAuth 访问令牌与刷新令牌只以哈希保存，并会轮换；修改 Phosphene 登录密码会撤销现有
+OAuth 授权。原有 AI Token 客户端继续使用同一个 `/mcp`，不受影响。
+
 ### Claude.ai 网页版与 Claude 手机端
 
-这次没有加入 OAuth 2.1。Claude 的远程自定义连接器对受保护服务通常需要完整 OAuth 流程，
-而不是一个静态 Header；可靠实现还必须包含授权页面、PKCE、客户端注册、访问令牌、刷新
-令牌、撤销和持久化。只实现其中一部分会造成看似能添加、实际无法续期或越权的连接，因此
-Phosphene 目前不宣称支持 Claude.ai 直接授权。
+当前 OAuth 动态客户端注册只接受 ChatGPT 官方回调地址，因此不宣称支持 Claude.ai 直接
+授权。要支持其他网页客户端，需要为其回调地址与客户端身份另行设计明确的信任策略。
 
 Claude 也能连接无鉴权的远程 MCP，但为了让网页端工作而把公网实例切成 `none` 会暴露整套
-私人数据，不作为推荐方案。OAuth 支持会在能够作为完整安全功能交付时单独设计，不影响现在
-所有静态 Token 客户端。相关技术要求可参考
+私人数据，不作为推荐方案。相关技术要求可参考
 [Anthropic 的远程连接器说明](https://support.anthropic.com/en/articles/11503834-building-custom-integrations-via-remote-mcp-servers)。
 
 所有 Token 只能保存在可信后端环境变量或本地私密配置中，不能进入浏览器变量、公开仓库、
