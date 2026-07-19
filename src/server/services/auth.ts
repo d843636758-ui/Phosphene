@@ -3,10 +3,18 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import type { CookieOptions, NextFunction, Request, Response } from "express";
 import { config } from "../config";
 import { getDb } from "../db/client";
-import { aiTokens, appSettings, auditLogs, sessions, userAccount } from "../db/schema";
+import {
+  aiTokens,
+  appSettings,
+  auditLogs,
+  oauthTokens,
+  sessions,
+  userAccount
+} from "../db/schema";
 import { AppError, assertFound, assertState } from "../errors";
 import { createId, createSecret, tokenHash } from "../lib/ids";
 import { readMcpToken } from "../lib/mcp-connection";
+import { mcpAuthenticateChallenge } from "../lib/oauth";
 import { acceptsSetupToken } from "../lib/setup-access";
 
 const SESSION_COOKIE = "phosphene_session";
@@ -153,7 +161,7 @@ export function requireCsrf(request: Request, _response: Response, next: NextFun
   }
 }
 
-export async function requireAi(request: Request, _response: Response, next: NextFunction) {
+export async function requireAi(request: Request, response: Response, next: NextFunction) {
   try {
     if (config.PHOSPHENE_MCP_AUTH_MODE === "none") {
       request.phospheneActor = "AI";
@@ -165,6 +173,7 @@ export async function requireAi(request: Request, _response: Response, next: Nex
       request.get("x-phosphene-mcp-token")
     );
     if (credential.conflicting) {
+      response.set("WWW-Authenticate", mcpAuthenticateChallenge(config.PUBLIC_URL));
       throw new AppError(
         401,
         "conflicting_ai_token",
@@ -172,6 +181,7 @@ export async function requireAi(request: Request, _response: Response, next: Nex
       );
     }
     if (!credential.token) {
+      response.set("WWW-Authenticate", mcpAuthenticateChallenge(config.PUBLIC_URL));
       throw new AppError(
         401,
         "ai_token_required",
@@ -184,8 +194,27 @@ export async function requireAi(request: Request, _response: Response, next: Nex
         isNull(aiTokens.revokedAt)
       )
     });
-    if (!token) throw new AppError(401, "invalid_ai_token", "AI token is invalid or revoked");
-    await getDb().update(aiTokens).set({ lastUsedAt: new Date() }).where(eq(aiTokens.id, token.id));
+    if (token) {
+      await getDb().update(aiTokens).set({ lastUsedAt: new Date() }).where(eq(aiTokens.id, token.id));
+      request.phospheneActor = "AI";
+      next();
+      return;
+    }
+    const oauthToken = await getDb().query.oauthTokens.findFirst({
+      where: and(
+        eq(oauthTokens.accessTokenHash, tokenHash(credential.token)),
+        isNull(oauthTokens.revokedAt),
+        gt(oauthTokens.accessExpiresAt, new Date())
+      )
+    });
+    if (!oauthToken) {
+      response.set("WWW-Authenticate", mcpAuthenticateChallenge(config.PUBLIC_URL));
+      throw new AppError(401, "invalid_ai_token", "AI or OAuth token is invalid or expired");
+    }
+    await getDb()
+      .update(oauthTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(oauthTokens.id, oauthToken.id));
     request.phospheneActor = "AI";
     next();
   } catch (error) {
@@ -228,6 +257,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
   await db.transaction(async (tx: any) => {
     await tx.update(userAccount).set({ passwordHash, passwordChangedAt: new Date(), updatedAt: new Date() }).where(eq(userAccount.id, 1));
     await tx.update(sessions).set({ revokedAt: new Date() }).where(isNull(sessions.revokedAt));
+    await tx.update(oauthTokens).set({ revokedAt: new Date() }).where(isNull(oauthTokens.revokedAt));
   });
 }
 

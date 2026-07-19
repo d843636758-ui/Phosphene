@@ -17,6 +17,7 @@ import {
   getActiveBackupOperation
 } from "./services/backup";
 import { getPublicSettings, reconcileSystem } from "./services/domain";
+import { createOAuthRouter } from "./services/oauth";
 import {
   initializeStorage,
   pruneOrphanedProofFiles
@@ -63,6 +64,7 @@ app.use(pinoHttp({ logger }));
 app.use(cookieParser());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
+app.use(createOAuthRouter());
 
 app.get("/healthz", (_request, response) => {
   response.json({ status: "ok", version: "1.0.0" });

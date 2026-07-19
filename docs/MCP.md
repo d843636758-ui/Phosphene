@@ -96,9 +96,22 @@ bundle 中注入凭证，也不要为跨域浏览器直连打开宽泛 CORS。
 - 完全不能发送 Header 时，只在同机回环使用 `none`
 - 远程 Zeabur URL 必须使用 HTTPS 与 Token
 
+### ChatGPT 网页版
+
+在 ChatGPT 开发者模式中新建自定义 MCP 应用：
+
+- Server URL：`https://YOUR_DOMAIN/mcp`
+- Authentication：`OAuth`
+- 不填写或暴露静态 AI Token
+
+Phosphene 提供 OAuth protected-resource metadata、authorization-server metadata、动态
+客户端注册、授权码 + S256 PKCE、短期访问令牌与旋转刷新令牌。授权页面只接受 Phosphene
+登录密码，动态注册只允许 `https://chatgpt.com/connector/oauth/...` 与兼容的旧版官方回调。
+修改网站登录密码会撤销现有 OAuth 令牌，但不会撤销静态 AI Token。
+
 ### Claude.ai 与 Claude 手机端
 
-Phosphene 尚未实现 OAuth 2.1 授权服务器，因此不把静态 Token 模式描述成 Claude.ai
+Phosphene 的 OAuth 客户端注册当前只信任 ChatGPT 官方回调，因此不把它描述成 Claude.ai
 远程连接器兼容。将公网服务改为 `none` 虽可能绕过认证步骤，却会同时取消全部 MCP 访问
 控制，不属于安全方案。
 
@@ -108,6 +121,7 @@ Phosphene 尚未实现 OAuth 2.1 授权服务器，因此不把静态 Token 模�
 | --- | --- |
 | `401 ai_token_required` | Header 名是否正确，Bearer 后是否有一个空格 |
 | `401 invalid_ai_token` | Token 是否复制完整、已轮换或撤销 |
+| ChatGPT 创建连接器时报错 | 身份验证是否选择 OAuth，部署版本是否包含 OAuth discovery |
 | `401 conflicting_ai_token` | 不要同时发送不同的 Authorization 与专用 Header |
 | 没有工具 | URL 是否以 `/mcp` 结尾，客户端是否真的使用 Streamable HTTP |
 | stdio 启动即退出 | 本机是否已构建，以及两个 `PHOSPHENE_MCP_*` 调用方变量是否存在 |

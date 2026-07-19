@@ -141,6 +141,73 @@ export const aiTokens = sqliteTable(
   (table) => [uniqueIndex("ai_tokens_hash_idx").on(table.tokenHash)]
 );
 
+export const oauthClients = sqliteTable(
+  "oauth_clients",
+  {
+    clientId: text("client_id").primaryKey(),
+    clientName: text("client_name").notNull().default("ChatGPT"),
+    redirectUris: text("redirect_uris", { mode: "json" })
+      .$type<string[]>()
+      .notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowInMilliseconds)
+  }
+);
+
+export const oauthAuthorizationCodes = sqliteTable(
+  "oauth_authorization_codes",
+  {
+    id: text("id").primaryKey(),
+    codeHash: text("code_hash").notNull(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    scope: text("scope").notNull(),
+    resource: text("resource").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowInMilliseconds)
+  },
+  (table) => [
+    uniqueIndex("oauth_authorization_codes_hash_idx").on(table.codeHash),
+    index("oauth_authorization_codes_expiry_idx").on(table.expiresAt)
+  ]
+);
+
+export const oauthTokens = sqliteTable(
+  "oauth_tokens",
+  {
+    id: text("id").primaryKey(),
+    accessTokenHash: text("access_token_hash").notNull(),
+    refreshTokenHash: text("refresh_token_hash").notNull(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+    scope: text("scope").notNull(),
+    resource: text("resource").notNull(),
+    accessExpiresAt: integer("access_expires_at", { mode: "timestamp_ms" })
+      .notNull(),
+    refreshExpiresAt: integer("refresh_expires_at", { mode: "timestamp_ms" })
+      .notNull(),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowInMilliseconds)
+  },
+  (table) => [
+    uniqueIndex("oauth_tokens_access_hash_idx").on(table.accessTokenHash),
+    uniqueIndex("oauth_tokens_refresh_hash_idx").on(table.refreshTokenHash),
+    index("oauth_tokens_access_expiry_idx").on(table.accessExpiresAt),
+    index("oauth_tokens_refresh_expiry_idx").on(table.refreshExpiresAt)
+  ]
+);
+
 export const taskSeries = sqliteTable(
   "task_series",
   {
