@@ -27,6 +27,26 @@ Phosphene 的正式生产方式固定为一个应用服务加一个持久化卷�
 
 Zeabur 注入的 `PORT` 和 `ZEABUR_WEB_URL` 会被应用自动使用；一般不需要手工填写 `PUBLIC_URL`。
 
+## 迁移到阿里云 Docker
+
+阿里云仍使用本页开头的单容器加 `/data` 持久卷拓扑，不需要修改应用代码：
+
+1. 在旧实例的网站中下载一次业务 ZIP，作为迁移前的独立保险副本。
+2. 创建阿里云持久目录并挂载到容器 `/data`，先不要把新域名切给用户或 MCP 客户端。
+3. 短暂停止旧容器，完整复制旧 `/data` 目录；必须连同
+   `phosphene.sqlite-wal`、`phosphene.sqlite-shm` 和 `uploads` 一起复制。
+4. 新容器设置 `PUBLIC_URL=https://phosphene.xunzhou.space`，保持
+   `PHOSPHENE_MCP_AUTH_MODE=token`，不要重新执行首次认领。
+5. 启动后依次验证 `/healthz`、网站登录、历史任务与图片、MCP
+   `get_overview`。整卷迁移会保留登录凭证和 AI Token，因此现有 ChatGPT 与
+   Desire Core 连接不需要换 Token。
+6. 验收完成前保持旧卷不删除。若验证失败，停止新容器并重新挂回旧服务；不要让
+   新旧两个容器同时写同一份 SQLite 数据。
+
+如果无法停机复制整卷，可先初始化一个全新实例，再通过网站 ZIP 恢复业务数据；但 ZIP
+不会迁移密码、会话和 AI Token，随后必须重新配置 ChatGPT 与 Desire Core，因而不是本次
+迁移的首选方案。
+
 ### 持久卷检查
 
 挂载完成后应满足：
