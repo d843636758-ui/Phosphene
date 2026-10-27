@@ -16,6 +16,7 @@ const storageSource = fs.readFileSync("src/server/services/storage.ts", "utf8");
 const serverSource = fs.readFileSync("src/server/index.ts", "utf8");
 const manifest = JSON.parse(fs.readFileSync("public/manifest.webmanifest", "utf8"));
 const serviceWorker = fs.readFileSync("public/sw.js", "utf8");
+const aliyunDeploy = fs.readFileSync("scripts/deploy-aliyun.sh", "utf8");
 
 assert(dockerfile.includes('VOLUME ["/data"]'), "Image must declare the /data volume");
 assert(dockerfile.includes("docker-entrypoint.sh"), "Image must install its entrypoint");
@@ -90,6 +91,28 @@ assert(
 assert(
   app.spec.env.PHOSPHENE_MCP_AUTH_MODE.default === "token",
   "Zeabur must keep token authentication as the default"
+);
+
+assert(
+  aliyunDeploy.includes("DATA_DIR=/opt/mcp-stack/data/phosphene") &&
+    aliyunDeploy.includes("$DATA_DIR:/data"),
+  "Alibaba Cloud deployment must use the persistent Phosphene data directory"
+);
+assert(
+  aliyunDeploy.includes('ALLOW_EMPTY_PHOSPHENE_DATA:-0') &&
+    aliyunDeploy.includes("phosphene.sqlite"),
+  "Alibaba Cloud deployment must guard against starting before data migration"
+);
+assert(
+  aliyunDeploy.includes("PHOSPHENE_MCP_AUTH_MODE=token") &&
+    aliyunDeploy.includes("PUBLIC_URL=https://$DOMAIN"),
+  "Alibaba Cloud deployment must preserve MCP authentication and the public URL"
+);
+assert(
+  aliyunDeploy.includes("reverse_proxy phosphene:8080") &&
+    aliyunDeploy.includes("caddy validate") &&
+    aliyunDeploy.includes("caddy reload"),
+  "Alibaba Cloud deployment must install and validate the Caddy route"
 );
 
 console.log("Single-service SQLite deployment manifests are valid.");
